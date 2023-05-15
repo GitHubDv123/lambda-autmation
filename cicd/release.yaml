@@ -1,0 +1,91 @@
+variables:
+  terraformVersion: 1.2.8
+
+resources:
+  repositories:
+  - repository: yaml-pipeline-templates
+    type: git
+    name: dx-yaml-pipeline-templates
+    ref: master
+  pipelines:
+  - pipeline: service
+    source: new-world\automated\lambda\build\dx-ami-automation-lambda
+    branch: feature/ami-automation-phase1.1
+    trigger: none
+
+
+trigger: none
+
+stages:
+- stage: BuildNonProd
+  jobs:
+  - job: terraform_Install
+    pool: nwo-build-agents
+    steps:
+      - task: TerraformInstaller@0
+        displayName: "Install Terraform $(terraformVersion)"
+        inputs:
+          terraformVersion: $(terraformVersion)
+      
+      - task: TerraformCLI@0
+        displayName: Terraform Init
+        inputs:
+          command: init
+          workingDirectory: $(System.DefaultWorkingDirectory)/terraform/environment/dev
+          allowTelemetryCollection: true
+      - script: |
+           echo "Agent Build directory $(Agent.BuildDirectory)/Artifacts"
+           ls -lrt $(Agent.BuildDirectory)/Artifacts
+
+           echo "System Default Working  $(System.DefaultWorkingDirectory)"
+           ls -lrt $(System.DefaultWorkingDirectory)
+           
+           echo "Pipelineworkspace $(Pipeline.Workspace) "
+           ls -lrt $(Pipeline.Workspace)/Artifacts
+           
+           echo "Build.SourcesDirectory  $(Build.SourcesDirectory) "
+           ls -lrt $(Build.SourcesDirectory)
+
+           echo "This is a woringDirectory $(Build.ArtifactStagingDirectory) "
+           ls -lrt $(Build.ArtifactStagingDirectory)
+           
+           echo "Current directory "$PWD" "
+           ls -lrt "$PWD"
+
+      - task: TerraformCLI@0
+        displayName: 'Terraform Plan'
+        inputs:
+          command: 'plan'
+          commandOptions: '-out=$(System.DefaultWorkingDirectory)/terraform/environment/dev/planfile.tfplan'
+          workingDirectory: '$(System.DefaultWorkingDirectory)/terraform/environment/dev'
+      
+      - task: TerraformCLI@0
+        displayName: 'Terraform Apply'
+        inputs:
+          command: 'apply'
+          commandOptions: '-auto-approve'
+          planFile: '$(System.DefaultWorkingDirectory)/terraform/environment/dev/planfile.tfplan'
+          workingDirectory: '$(System.DefaultWorkingDirectory)/terraform/environment/dev'
+
+
+
+
+      #- task: DownloadPipelineArtifact@2
+      #  inputs:
+      #    artifactName: 'terraformArtifact'
+       
+      #- task: DownloadBuildArtifacts@1
+      #  inputs:
+      #    buildType: 'current'
+      #    downloadType: 'single'
+      #    artifactName: 'terraformArtifact'
+      #    downloadPath: '$(Build.ArtifactStagingDirectory)/myArtifact'
+      
+      - script: |
+           ls -lrt  $(Build.SourcesDirectory)/bin
+           ls -lrt $(Agent.BuildDirectory)/Artifacts
+           ls -lrt $(System.DefaultWorkingDirectory)
+           ls -lrt $(Pipeline.Workspace)/Artifacts
+           ls -lrt $(Build.ArtifactStagingDirectory)
+    displayName: 'Build application'
+ 

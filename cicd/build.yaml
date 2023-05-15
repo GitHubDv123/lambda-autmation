@@ -1,0 +1,37 @@
+resources:
+  repositories:
+    - repository: self
+      clean: true
+    - repository: yaml-pipeline-templates
+      type: git
+      name: dx-yaml-pipeline-templates
+      ref: master
+
+parameters:
+  - name: forceBuild
+    type: boolean
+    default: false
+
+pool:
+  name: nwo-build-agents
+
+extends:
+  template: build.yaml@yaml-pipeline-templates
+  parameters:
+    frameworkVersion: 2
+    buildProfile: custom-build
+    buildProfileVersion: beta
+    forceBuild: ${{ parameters.forceBuild }}
+    buildSteps:
+      - template: build-steps.yaml
+    servicePrefix: dx
+    # TODO replace this with service name excluding suffix 'dx' for example 'wfh-v2-lambda'
+    serviceName: ami-automation-lambda
+    # channelName: team-services
+    buildForBranches:
+      - refs/pull
+      - refs/heads/main
+      - refs/heads/release
+      - refs/heads/feature
+    variableTemplates:
+      - cicd/variables.yaml

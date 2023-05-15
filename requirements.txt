@@ -1,0 +1,6 @@
+boto3
+requests
+pytz
+datetime
+orjson
+terraformVersion: 1.2.8

@@ -1,0 +1,41 @@
+steps:
+  - checkout: self
+    clean: true
+    persistCredentials: true
+
+  - task: TerraformInstaller@0
+    displayName: "Install Terraform $(terraformVersion)"
+    inputs:
+      terraformVersion: $(terraformVersion)
+
+  - task: TerraformCLI@0
+    displayName: Terraform Init
+    inputs:
+      command: init
+      workingDirectory: $(System.DefaultWorkingDirectory)/terraform/environment/dev
+      allowTelemetryCollection: true
+
+  - task: TerraformCLI@0
+    displayName: Terraform Validate
+    inputs:
+      command: validate
+      workingDirectory: $(System.DefaultWorkingDirectory)/terraform/environment/dev
+
+  - task: TerraformCLI@0
+    displayName: 'Terraform Plan'
+    inputs:
+      command: 'plan'
+      commandOptions: '-out=$(System.DefaultWorkingDirectory)/terraform/environment/dev/planfile.tfplan'
+      workingDirectory: '$(System.DefaultWorkingDirectory)/terraform/environment/dev'
+      
+
+  - task: PublishBuildArtifacts@1
+    displayName: "Publish Artifact: $(Build.DefinitionName)-terraform"
+    inputs:
+      PathtoPublish: ./terraform
+      ArtifactName: terraformArtifact
+
+  - script: |
+           ls -lrt $(Build.ArtifactStagingDirectory)
+           ls -lrt $(System.DefaultWorkingDirectory)
+           ls -lrt $(System.ArtifactsDirectory)

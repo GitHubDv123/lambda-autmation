@@ -1,0 +1,40 @@
+- ParameterKey: Domain
+  ParameterValue: "${Domain}"
+- ParameterKey: Division
+  ParameterValue: "${Division}"
+- ParameterKey: Program
+  ParameterValue: "${Program}"
+- ParameterKey: Team
+  ParameterValue: "${Team}"
+- ParameterKey: BuildDefinitionName
+  ParameterValue: "${BUILD_DEFINITIONNAME}"
+- ParameterKey: FunctionName
+  ParameterValue: "${BUILD_DEFINITIONNAME}-${RELEASE_ENVIRONMENTNAME}"
+- ParameterKey: BuildId
+  ParameterValue: "${buildNumber}"
+- ParameterKey: ReservedConcurrentExecutions
+  ParameterValue: "${ReservedConcurrentExecutions}"
+- ParameterKey: VpcIdSsm
+  ParameterValue: "${VpcIdSsm}"
+- ParameterKey: LambdaSubnetASsm
+  ParameterValue: "${LambdaSubnetASsm}"
+- ParameterKey: LambdaSubnetBSsm
+  ParameterValue: "${LambdaSubnetBSsm}"
+- ParameterKey: LambdaSubnetCSsm
+  ParameterValue: "${LambdaSubnetCSsm}" 
+- ParameterKey: LogGroupCkmsArnSsm
+  ParameterValue: "${LogGroupCkmsArnSsm}"
+- ParameterKey: DatadogFirehoseLogStreamArnSsm
+  ParameterValue: "${DatadogFirehoseLogStreamArnSsm}"
+- ParameterKey: DatadogFirehoseRoleLogStreamArnSsm
+  ParameterValue: "${DatadogFirehoseRoleLogStreamArnSsm}"
+
+# =========================================================
+# ---- OutBound Proxy
+# ---- ----------------------------------------------------
+# ---- HTTP/HTTPS proxy variables
+# ---------------------------------------------------------
+- ParameterKey: HttpProxy
+  ParameterValue: "http://${DxLOutboundProxyHost}:${DxLOutboundProxyPort}"
+- ParameterKey: NoProxy
+  ParameterValue: "${DxLOutboundProxyExceptions}"

@@ -1,0 +1,201 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Template to deploy a lambda Python function.
+
+Parameters:
+  Domain:
+    Description: The domain name e.g. dx
+    Type: String
+  
+  Division:
+    Description: The division under which this lambda function lies 
+    Type: String
+
+  Program:
+    Description: The program under which this lambda function lies 
+    Type: String
+
+  Team:
+    Description: The team under which this lambda function lies 
+    Type: String
+
+  BuildDefinitionName:
+    Description: The name of the build that built the lambda code
+    Type: String
+
+  BuildId:
+    Description: The build Id use to deploy
+    Type: String       
+
+  ReservedConcurrentExecutions:
+    Description: Maximum Lambda concurrent executions
+    Type: Number
+
+  VpcIdSsm:
+    Description: VPC ID SSM
+    Type: 'AWS::SSM::Parameter::Value<AWS::EC2::VPC::Id>'
+
+  LambdaSubnetASsm:
+    Description: Private Lambda Subnet ID SSM Value.
+    Type: 'AWS::SSM::Parameter::Value<String>'
+  
+  LambdaSubnetBSsm:
+    Description: Private Lambda Subnet ID SSM Value.
+    Type: 'AWS::SSM::Parameter::Value<String>'
+
+  LambdaSubnetCSsm:
+    Description: Private Lambda Subnet ID SSM Value.
+    Type: 'AWS::SSM::Parameter::Value<String>'
+
+  LogGroupCkmsArnSsm:
+    Description: CMKS Master Key for LogGroup
+    Type: AWS::SSM::Parameter::Value<String>
+
+  DatadogFirehoseLogStreamArnSsm:
+    Description: The ARN of the Datadog Firehose DataStream.
+    Type: AWS::SSM::Parameter::Value<String>
+
+  DatadogFirehoseRoleLogStreamArnSsm:
+    Description: The Role ARN of the Datadog Firehose DataStream.
+    Type: AWS::SSM::Parameter::Value<String>
+
+  RetentionInDays:
+    Description: Logs Retention Days
+    Type: String
+    Default: 30
+
+  FunctionName:
+    Description: Lambda Function Name
+    Type: String
+
+  # =========================================================
+  # ---- OBP Variables
+  # ---------------------------------------------------------
+
+  HttpProxy:
+    Description: Proxy server address for http requests.
+    Type: String
+
+  NoProxy:
+    Description: Space-separated list of hosts that should bypass the proxy.
+    Type: String
+
+Resources:
+
+  LambdaFunction:
+    Type: AWS::Lambda::Function
+    DependsOn: LogGroup
+    Properties:
+      Runtime:  python3.8
+      Handler: main.lambda_handler
+      Role: !GetAtt LambdaRole.Arn
+      Code:
+        S3Bucket: dx-lambda-storage
+        S3Key: !Sub '${BuildDefinitionName}/${BuildId}/${BuildDefinitionName}-${BuildId}.zip'
+      Description: Lambda function for python code
+      FunctionName: !Ref FunctionName
+      ReservedConcurrentExecutions: !Ref ReservedConcurrentExecutions
+      MemorySize: 512
+      Timeout: 300
+      VpcConfig: 
+        SecurityGroupIds:
+          - !GetAtt DefaultLambdaSecurityGroup.GroupId
+        SubnetIds:
+          - !Ref LambdaSubnetASsm
+          - !Ref LambdaSubnetBSsm
+          - !Ref LambdaSubnetCSsm
+      Environment:
+        Variables:
+          HTTP_PROXY: !Ref HttpProxy
+          HTTPS_PROXY: !Ref HttpProxy
+          #If using boto3 the bellow needs to be disable, as NO_PROXY has .amazonaws.com in it
+          #All of this comes because the Lambda Subnets do not have a DefaultGw (0.0.0.0) to IGw/NAtGw
+          #Either that or need the Subnet RTb to put the boto3 request to be routed internally.
+          #NO_PROXY: !Ref NoProxy
+      Tags:
+        - Key: Name
+          Value: !Ref 'AWS::StackName'
+        - Key: Domain
+          Value: !Ref 'Domain'
+        - Key: Division
+          Value: !Ref 'Division'
+        - Key: Program
+          Value: !Ref 'Program'
+        - Key: Team
+          Value: !Ref 'Team'
+
+  LambdaRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument: 
+          Version: "2012-10-17"
+          Statement:
+            -
+              Effect: "Allow"
+              Principal:
+                Service: 
+                  - lambda.amazonaws.com
+              Action:
+                - sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole
+      Tags:
+        - Key: Name
+          Value: !Ref 'AWS::StackName'
+        - Key: Domain
+          Value: !Ref 'Domain'
+        - Key: Division
+          Value: !Ref 'Division'
+        - Key: Program
+          Value: !Ref 'Program'
+        - Key: Team
+          Value: !Ref 'Team'
+
+  DefaultLambdaSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: "Lambda Security Group"
+      VpcId: !Ref VpcIdSsm
+      SecurityGroupEgress:
+        - IpProtocol: '-1'
+          FromPort: -1
+          ToPort: -1
+          CidrIp: '0.0.0.0/0'
+          Description: 'Outbound Traffic Rule'
+      Tags:
+        - Key: Name
+          Value: !Ref 'AWS::StackName'
+        - Key: Domain
+          Value: !Ref 'Domain'
+        - Key: Division
+          Value: !Ref 'Division'
+        - Key: Program
+          Value: !Ref 'Program'
+        - Key: Team
+          Value: !Ref 'Team'
+
+  LogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub '/aws/lambda/${FunctionName}'
+      RetentionInDays: !Ref RetentionInDays
+      KmsKeyId: !Ref LogGroupCkmsArnSsm
+      Tags:
+        - Key: Name
+          Value: !Ref AWS::StackName
+        - Key: Domain
+          Value: !Ref Domain
+        - Key: Division
+          Value: !Ref Division
+        - Key: Program
+          Value: !Ref Program
+        - Key: Team
+          Value: !Ref Team
+
+  DatadogFirehoseLogShippingSubscription:
+    Type: AWS::Logs::SubscriptionFilter
+    Properties:
+      LogGroupName: !Ref LogGroup
+      FilterPattern: ""
+      DestinationArn: !Ref DatadogFirehoseLogStreamArnSsm
+      RoleArn: !Ref DatadogFirehoseRoleLogStreamArnSsm
